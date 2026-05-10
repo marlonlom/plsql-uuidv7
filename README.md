@@ -85,7 +85,7 @@ The script tests 50,000 row inserts, index fragmentation via `ANALYZE INDEX ... 
 ## Project Structure
 
 ```
-plsql-uuid-v7/
+plsql-uuidv7/
 ├── src/
 │   ├── main/oracle/packages/      # pl_uuidv7.pks, pl_uuidv7.pkb
 │   └── test/oracle/pl_uuidv7/     # test_uuidv7.sql, test_uuidv7_monotonic.sql
