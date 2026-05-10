@@ -74,7 +74,7 @@ Run the included benchmark to measure results on your specific hardware and Orac
 @examples/benchmark_sysguid_vs_uuidv7.sql
 ```
 
-The script tests 50,000 row inserts, index fragmentation via `ANALYZE INDEX ... VALIDATE STRUCTURE`, and `ORDER BY` logical reads via `V$MYSTAT`.
+The script tests 50000 row inserts, index fragmentation via `ANALYZE INDEX ... VALIDATE STRUCTURE`, and `ORDER BY` logical reads via `V$MYSTAT`.
 
 > **Requirement:** `SELECT` privilege on `V$MYSTAT` and `V$STATNAME` for the I/O metric.
 
