@@ -112,6 +112,64 @@ BEGIN
   END;
 
   /* ========================================================= */
+  /* Test 6: No duplicates when bulk-calling generate_uuid      */
+  /*         with a fixed epoch (same-ms monotonic counter)     */
+  /* Uses 4095 calls — one below the counter wrap boundary.     */
+  /* ========================================================= */
+  DECLARE
+    v_epoch_table  SYS.ODCIVARCHAR2LIST := SYS.ODCIVARCHAR2LIST();
+    v_fixed_epoch  NUMBER;
+    v_epoch_dupes  NUMBER;
+    v_epoch_count  NUMBER := 4095;
+  BEGIN
+    v_fixed_epoch := (DATE '2024-01-01' - DATE '1970-01-01') * 86400000;
+
+    FOR i IN 1..v_epoch_count LOOP
+      v_epoch_table.EXTEND;
+      v_epoch_table(v_epoch_table.COUNT) := pl_uuidv7.generate_uuid(v_fixed_epoch);
+    END LOOP;
+
+    SELECT COUNT(*) - COUNT(DISTINCT column_value)
+      INTO v_epoch_dupes
+      FROM TABLE(v_epoch_table);
+
+    assert(
+      'No duplicates in ' || v_epoch_count || ' generate_uuid(epoch_ms) calls',
+      v_epoch_dupes = 0
+    );
+  END;
+
+  /* ========================================================= */
+  /* Test 7: All generate_uuid(epoch_ms) UUIDs encode the      */
+  /*         provided epoch in the first 12 hex digits          */
+  /* ========================================================= */
+  DECLARE
+    v_epoch_table2  SYS.ODCIVARCHAR2LIST := SYS.ODCIVARCHAR2LIST();
+    v_fixed_epoch   NUMBER;
+    v_expected_ts   VARCHAR2(12);
+    v_bad_ts        NUMBER;
+    v_epoch_count   NUMBER := 100;
+  BEGIN
+    v_fixed_epoch := (DATE '2025-06-15' - DATE '1970-01-01') * 86400000;
+    v_expected_ts := LPAD(TO_CHAR(v_fixed_epoch, 'FMXXXXXXXXXXXX'), 12, '0');
+
+    FOR i IN 1..v_epoch_count LOOP
+      v_epoch_table2.EXTEND;
+      v_epoch_table2(v_epoch_table2.COUNT) := pl_uuidv7.generate_uuid(v_fixed_epoch);
+    END LOOP;
+
+    SELECT COUNT(*)
+      INTO v_bad_ts
+      FROM TABLE(v_epoch_table2)
+     WHERE SUBSTR(REPLACE(column_value, '-', ''), 1, 12) != v_expected_ts;
+
+    assert(
+      'All generate_uuid(epoch_ms) UUIDs encode the correct timestamp',
+      v_bad_ts = 0
+    );
+  END;
+
+  /* ========================================================= */
   /* Summary */
   /* ========================================================= */
   DBMS_OUTPUT.PUT_LINE('');

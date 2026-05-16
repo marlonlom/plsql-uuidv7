@@ -92,6 +92,56 @@ BEGIN
   );
 
   /* ========================================================= */
+  /* Test 8: generate_uuid(p_epoch_ms) returns valid UUID */
+  /* ========================================================= */
+  DECLARE
+    v_fixed_ms  NUMBER;
+    v_uuid2     VARCHAR2(36);
+  BEGIN
+    v_fixed_ms := (DATE '2024-01-01' - DATE '1970-01-01') * 86400000;
+    v_uuid2    := pl_uuidv7.generate_uuid(v_fixed_ms);
+
+    assert(
+        'generate_uuid(epoch_ms) length is 36',
+        LENGTH(v_uuid2) = 36
+    );
+    assert(
+        'generate_uuid(epoch_ms) matches UUID format',
+        REGEXP_LIKE(v_uuid2, '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+    );
+    assert(
+        'generate_uuid(epoch_ms) version nibble = 7',
+        SUBSTR(v_uuid2, 15, 1) = '7'
+    );
+    assert(
+        'generate_uuid(epoch_ms) variant is RFC 9562',
+        SUBSTR(v_uuid2, 20, 1) IN ('8', '9', 'a', 'b')
+    );
+    assert(
+        'generate_uuid(epoch_ms) timestamp encodes provided epoch',
+        SUBSTR(REPLACE(v_uuid2, '-', ''), 1, 12) =
+          LPAD(TO_CHAR(v_fixed_ms, 'FMXXXXXXXXXXXX'), 12, '0')
+    );
+  END;
+
+  /* ========================================================= */
+  /* Test 9: Two generate_uuid(same epoch) calls are different */
+  /* ========================================================= */
+  DECLARE
+    v_fixed_ms  NUMBER;
+    v_uuid_a    VARCHAR2(36);
+    v_uuid_b    VARCHAR2(36);
+  BEGIN
+    v_fixed_ms := (DATE '2024-01-01' - DATE '1970-01-01') * 86400000;
+    v_uuid_a   := pl_uuidv7.generate_uuid(v_fixed_ms);
+    v_uuid_b   := pl_uuidv7.generate_uuid(v_fixed_ms);
+    assert(
+        'Two generate_uuid(same epoch) calls produce different UUIDs',
+        v_uuid_a != v_uuid_b
+    );
+  END;
+
+  /* ========================================================= */
   /* Summary */
   /* ========================================================= */
   DBMS_OUTPUT.PUT_LINE('');

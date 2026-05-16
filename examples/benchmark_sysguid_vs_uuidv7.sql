@@ -30,8 +30,10 @@ DECLARE
   v_rows_sec    NUMBER;
   v_height_sg   NUMBER;
   v_height_uv7  NUMBER;
+  v_height_ep   NUMBER;
   v_frag_sg     NUMBER;
   v_frag_uv7    NUMBER;
+  v_frag_ep     NUMBER;
   v_cr_sg       NUMBER;
   v_cr_uv7      NUMBER;
   v_stat_before NUMBER;
@@ -66,6 +68,7 @@ BEGIN
      ============================================================ */
   BEGIN EXECUTE IMMEDIATE 'DROP TABLE uuidv7_bench_sg  PURGE'; EXCEPTION WHEN OTHERS THEN NULL; END;
   BEGIN EXECUTE IMMEDIATE 'DROP TABLE uuidv7_bench_uv7 PURGE'; EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN EXECUTE IMMEDIATE 'DROP TABLE uuidv7_bench_ep  PURGE'; EXCEPTION WHEN OTHERS THEN NULL; END;
 
   EXECUTE IMMEDIATE '
     CREATE TABLE uuidv7_bench_sg (
@@ -79,6 +82,13 @@ BEGIN
       id  VARCHAR2(36)  NOT NULL,
       val VARCHAR2(100) NOT NULL,
       CONSTRAINT uuidv7_bench_uv7_pk PRIMARY KEY (id)
+    )';
+
+  EXECUTE IMMEDIATE '
+    CREATE TABLE uuidv7_bench_ep (
+      id  VARCHAR2(36)  NOT NULL,
+      val VARCHAR2(100) NOT NULL,
+      CONSTRAINT uuidv7_bench_ep_pk PRIMARY KEY (id)
     )';
 
   DBMS_OUTPUT.PUT_LINE('BENCHMARK: SYS_GUID() vs pl_uuidv7.generate_uuid()');
@@ -130,10 +140,37 @@ BEGIN
   DBMS_OUTPUT.PUT_LINE('');
 
   /* ============================================================
-     TEST 3: INDEX FRAGMENTATION
+     TEST 3: INSERT PERFORMANCE — generate_uuid(p_epoch_ms)
+     Sequential epoch per row simulates a historical backfill.
      ============================================================ */
   sep;
-  DBMS_OUTPUT.PUT_LINE('[3] INDEX FRAGMENTATION');
+  DBMS_OUTPUT.PUT_LINE('[3] INSERT PERFORMANCE — pl_uuidv7.generate_uuid(epoch_ms)');
+  sep;
+
+  DECLARE
+    v_base_epoch NUMBER := (DATE '2024-01-01' - DATE '1970-01-01') * 86400000;
+  BEGIN
+    v_t0 := DBMS_UTILITY.GET_TIME;
+    FOR i IN 1..c_rows LOOP
+      INSERT INTO uuidv7_bench_ep (id, val)
+      VALUES (pl_uuidv7.generate_uuid(v_base_epoch + i), 'benchmark-row-' || i);
+    END LOOP;
+    COMMIT;
+    v_t1 := DBMS_UTILITY.GET_TIME;
+  END;
+
+  v_elapsed_ms := (v_t1 - v_t0) * 10;
+  v_rows_sec   := ROUND(c_rows / (v_elapsed_ms / 1000));
+  DBMS_OUTPUT.PUT_LINE('  Rows inserted : ' || c_rows);
+  DBMS_OUTPUT.PUT_LINE('  Elapsed (ms)  : ' || v_elapsed_ms);
+  DBMS_OUTPUT.PUT_LINE('  Rows/second   : ' || v_rows_sec);
+  DBMS_OUTPUT.PUT_LINE('');
+
+  /* ============================================================
+     TEST 4: INDEX FRAGMENTATION
+     ============================================================ */
+  sep;
+  DBMS_OUTPUT.PUT_LINE('[4] INDEX FRAGMENTATION');
   sep;
 
   EXECUTE IMMEDIATE 'ANALYZE INDEX uuidv7_bench_sg_pk VALIDATE STRUCTURE';
@@ -146,23 +183,29 @@ BEGIN
     INTO v_height_uv7, v_frag_uv7
     FROM index_stats;
 
-  DBMS_OUTPUT.PUT_LINE('  Metric              SYS_GUID     UUID v7');
-  DBMS_OUTPUT.PUT_LINE('  ----------------  ----------  ----------');
+  EXECUTE IMMEDIATE 'ANALYZE INDEX uuidv7_bench_ep_pk VALIDATE STRUCTURE';
+  SELECT height, ROUND(del_lf_rows / NULLIF(lf_rows, 0) * 100, 2)
+    INTO v_height_ep, v_frag_ep
+    FROM index_stats;
+
+  DBMS_OUTPUT.PUT_LINE('  Metric              SYS_GUID     UUID v7   epoch_ms');
+  DBMS_OUTPUT.PUT_LINE('  ----------------  ----------  ----------  ----------');
   DBMS_OUTPUT.PUT_LINE('  Index height    : ' ||
-    LPAD(v_height_sg, 10) || '  ' || LPAD(v_height_uv7, 10));
+    LPAD(v_height_sg, 10) || '  ' || LPAD(v_height_uv7, 10) || '  ' || LPAD(v_height_ep, 10));
   DBMS_OUTPUT.PUT_LINE('  Fragmentation % : ' ||
     LPAD(NVL(TO_CHAR(v_frag_sg),  '0'), 10) || '  ' ||
-    LPAD(NVL(TO_CHAR(v_frag_uv7), '0'), 10));
+    LPAD(NVL(TO_CHAR(v_frag_uv7), '0'), 10) || '  ' ||
+    LPAD(NVL(TO_CHAR(v_frag_ep),  '0'), 10));
   DBMS_OUTPUT.PUT_LINE('');
   DBMS_OUTPUT.PUT_LINE('  Note: lower height and lower fragmentation % is better.');
-  DBMS_OUTPUT.PUT_LINE('  UUID v7 (time-ordered) should show lower fragmentation.');
+  DBMS_OUTPUT.PUT_LINE('  UUID v7 and epoch_ms (time-ordered) should show lower fragmentation.');
   DBMS_OUTPUT.PUT_LINE('');
 
   /* ============================================================
      TEST 4: ORDERING — logical reads for ORDER BY
      ============================================================ */
   sep;
-  DBMS_OUTPUT.PUT_LINE('[4] ORDERING PERFORMANCE (consistent gets for ORDER BY)');
+  DBMS_OUTPUT.PUT_LINE('[5] ORDERING PERFORMANCE (consistent gets for ORDER BY)');
   sep;
 
   DECLARE
@@ -198,7 +241,7 @@ BEGIN
      SUMMARY
      ============================================================ */
   sep;
-  DBMS_OUTPUT.PUT_LINE('[SUMMARY] Benchmark complete.');
+  DBMS_OUTPUT.PUT_LINE('[SUMMARY] Benchmark complete. Tests: SYS_GUID (1), generate_uuid (2), generate_uuid(epoch_ms) (3), fragmentation (4), ordering (5).');
   sep;
   DBMS_OUTPUT.PUT_LINE('  Run EXPLAIN PLAN on ORDER BY queries to confirm');
   DBMS_OUTPUT.PUT_LINE('  INDEX FULL SCAN (UUID v7) vs SORT ORDER BY (SYS_GUID).');
@@ -209,6 +252,7 @@ BEGIN
      ============================================================ */
   EXECUTE IMMEDIATE 'DROP TABLE uuidv7_bench_sg  PURGE';
   EXECUTE IMMEDIATE 'DROP TABLE uuidv7_bench_uv7 PURGE';
+  EXECUTE IMMEDIATE 'DROP TABLE uuidv7_bench_ep  PURGE';
   DBMS_OUTPUT.PUT_LINE('  Benchmark tables dropped.');
   DBMS_OUTPUT.PUT_LINE('');
 

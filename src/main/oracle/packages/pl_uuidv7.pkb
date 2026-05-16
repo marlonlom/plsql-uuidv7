@@ -1,4 +1,4 @@
-﻿/* SPDX-License-Identifier: Apache-2.0 */
+/* SPDX-License-Identifier: Apache-2.0 */
 /* Copyright 2026 marlonlom */
 
 /*
@@ -13,31 +13,67 @@ CREATE OR REPLACE PACKAGE BODY pl_uuidv7 AS
   g_last_ms NUMBER := -1;
   g_counter NUMBER := 0;
 
-  /* Function to generate a UUID v7 */
+  /*
+   * Returns the current package version.
+   *
+   * @return VARCHAR2
+   *   Package semantic version string.
+   *
+   * @example
+   * <pre>
+   * SELECT pl_uuidv7.get_version() FROM dual;
+   * </pre>
+   */
+  FUNCTION get_version RETURN VARCHAR2 IS
+  BEGIN
+    RETURN version;
+  END get_version;
+
+  /*
+   * Generates a UUID version 7 using the current system timestamp.
+   *
+   * Returns:
+   *   VARCHAR2(36) - RFC 9562 compliant UUID v7 string.
+   */
   FUNCTION generate_uuid
     RETURN VARCHAR2
   IS
-    l_uuid    RAW(16);
-    l_ts_ms   NUMBER;
-    l_ts      RAW(6);
-    l_rand    RAW(10);
-    l_rand_a  NUMBER;
-    l_byte    RAW(1);
     l_now_ms  NUMBER;
   BEGIN
     /* Epoch ms via Oracle-safe DATE arithmetic */
     l_now_ms := (SYSDATE - DATE '1970-01-01') * 86400000;
-    l_ts_ms  := TRUNC(l_now_ms);
+    /* Return formatted UUID */
+    RETURN generate_uuid(TRUNC(l_now_ms));
+  END generate_uuid;
+
+  /*
+   * Generates a UUID version 7 using the provided Unix epoch timestamp.
+   *
+   * Parameters:
+   *   p_epoch_ms - Timestamp in milliseconds since 1970-01-01 00:00:00 UTC.
+   *
+   * Returns:
+   *   VARCHAR2(36) - RFC 9562 compliant UUID v7 string.
+   */
+  FUNCTION generate_uuid(p_epoch_ms IN NUMBER)
+    RETURN VARCHAR2
+  IS
+    l_uuid    RAW(16);
+    l_ts      RAW(6);
+    l_rand    RAW(10);
+    l_rand_a  NUMBER;
+    l_byte    RAW(1);
+  BEGIN
     /* Random bytes for rand_b and optional rand_a seed */
     l_rand := DBMS_CRYPTO.RANDOMBYTES(10);
     /* Monotonicity: counter seeded from random at each new millisecond */
-    IF l_ts_ms = g_last_ms THEN
+    IF p_epoch_ms = g_last_ms THEN
       g_counter := g_counter + 1;
       IF g_counter > 4095 THEN
         g_counter := 0;  -- overflow: wrap (extremely rare in PL/SQL)
       END IF;
     ELSE
-      g_last_ms := l_ts_ms;
+      g_last_ms := p_epoch_ms;
       /* Seed rand_a with a random 12-bit value for the new timestamp period */
       g_counter := MOD(
         TO_NUMBER(RAWTOHEX(UTL_RAW.SUBSTR(l_rand, 1, 2)), 'XXXX'),
@@ -46,7 +82,7 @@ CREATE OR REPLACE PACKAGE BODY pl_uuidv7 AS
     END IF;
     l_rand_a := g_counter;
     /* Timestamp (48 bits) */
-    l_ts := HEXTORAW( LPAD(TO_CHAR(l_ts_ms, 'FMXXXXXXXXXXXX'), 12, '0') );
+    l_ts := HEXTORAW( LPAD(TO_CHAR(p_epoch_ms, 'FMXXXXXXXXXXXX'), 12, '0') );
     /* Build UUID base: 6 bytes timestamp + 10 bytes random */
     l_uuid := l_ts || l_rand;
     /* Byte 7: VERSION nibble (0111) | upper 4 bits of rand_a counter */
@@ -65,3 +101,4 @@ CREATE OR REPLACE PACKAGE BODY pl_uuidv7 AS
   END generate_uuid;
 
 END pl_uuidv7;
+

@@ -5,6 +5,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-05-11
+### Added
+- `generate_uuid(p_epoch_ms IN NUMBER)` overload: generates a UUID v7 anchored to a caller-supplied Unix epoch millisecond timestamp, enabling backfilling of historical records.
+- `VERSION CONSTANT VARCHAR2(10)` in package spec: exposes the library version string queryable at runtime via `SELECT pl_uuidv7.VERSION FROM dual;`.
+- `get_version()` function: returns the `VERSION` constant as a callable function, usable in PL/SQL contexts where a constant reference is not permitted.
+
+### Changed
+- `examples/monotonic_generation.sql`: updated to demonstrate both `generate_uuid()` and `generate_uuid(p_epoch_ms)` overloads, including epoch-based bulk insert pattern.
+- `examples/basic_usage.sql`: updated to include epoch-based generation example.
+- `docs/api-reference.md`: added `VERSION` constant section; added `#### Example` block to no-arg `generate_uuid`; expanded Usage Examples with inline query, PL/SQL block, and bulk insert patterns for the epoch-based overload.
+- `docs/getting-started.md`: added Epoch-Based Generation subsection; updated Monotonic Generation note to cover both overloads.
+- `README.md`: updated Usage section to document both functions.
+
 ## [1.1.0] - 2026-05-07
 ### Added
 - Test suite `test_uuidv7.sql`: validates format, version nibble, RFC 9562 variant, lowercase output, hyphen positions, and uniqueness of consecutive UUIDs.
