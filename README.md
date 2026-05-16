@@ -1,7 +1,6 @@
 ﻿# plsql-uuid-v7
 
 [![Version](https://img.shields.io/badge/version-1.2.0-informational)](CHANGELOG.md)
-[![CI](https://github.com/marlonlom/plsql-uuid-v7/actions/workflows/ci.yml/badge.svg)](https://github.com/marlonlom/plsql-uuid-v7/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![RFC 9562](https://img.shields.io/badge/RFC%209562-compliant-brightgreen)](docs/rfc9562-compliance.md)
 [![Oracle](https://img.shields.io/badge/Oracle-12c%2B-red?logo=oracle)](docs/getting-started.md)
