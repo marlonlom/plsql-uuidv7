@@ -118,7 +118,6 @@ plsql-uuid-v7/
 ├── install/                       # install.sql, uninstall.sql
 ├── examples/                      # basic_usage.sql, monotonic_generation.sql, benchmark_sysguid_vs_uuidv7.sql
 ├── docs/                          # getting-started.md, api-reference.md, rfc9562-compliance.md
-├── .github/workflows/             # ci.yml
 ├── .editorconfig
 ├── .gitignore
 ├── CHANGELOG.md
